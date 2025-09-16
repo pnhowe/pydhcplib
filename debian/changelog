@@ -1,4 +1,4 @@
-pydhcplib (0.7.2-2) focal; urgency=medium
+pydhcplib (0.7.2-2) noble; urgency=medium
 
   * python3 from fix from uskovboris
 
