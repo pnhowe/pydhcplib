@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 
-from setuptools import setup
-from distutils.core import Extension
+from setuptools import setup, Extension
 
 fr8_manpages = ['man/fr/man8/pydhcp.8.gz']
 fr3_manpages = ['man/fr/man3/pydhcplib.3.gz',

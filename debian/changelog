@@ -1,4 +1,10 @@
-pydhcplib (0.7.2-2) noble; urgency=medium
+pydhcplib (0.7.3-2noble1) noble; urgency=medium
+
+  * Packaging updates
+
+ -- Peter Howe <pnhowe@gmail.com>  Tue, 16 Sep 2025 13:00:03 -0600
+
+pydhcplib (0.7.2-2) focal; urgency=medium
 
   * python3 from fix from uskovboris
 

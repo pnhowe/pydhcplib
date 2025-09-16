@@ -23,22 +23,17 @@ the implementation of a missing feature as described in the end of this document
 Installation :
 ==============
 
-On Debian, simply run `./setup.py install`. Python modules will be
-installed in /usr/lib/python3.X/site-packages/pydhcplib/.
+Use pip to install::
 
-If you want to install it on a different location, use the `--prefix`
-on the `setup.py` command line like this::
+  $ pip3 install .
 
-  $ ./setup.py install --prefix=/rootpath/to/your/location/
+Or build a dpkg and install it (NOTE, you can update debian/changelog to change the package name)::
+
+  dpkg-buildpackage -b -us -uc
+  sudo dpkg -i ../python3-dhcplib_0.7.3-1noble1_amd64.deb
 
 There is also a PPA with pre-build debian packages for a few distros
 at: https://launchpad.net/~pnhowe/+archive/ubuntu/t3kton
-
-Creating egg :
-==============
-
-  use virtualenv with correct python version
-  $ python setup.py bdist_egg
 
 How to use pydhcplib :
 ======================
