@@ -160,52 +160,38 @@ class DhcpNetwork():
             self.SendDhcpPacketTo( response, giaddr, self.listen_port )
 
         elif ( response.IsDhcpNackPacket() ):
-            self.SendDhcpPacketTo( response, "255.255.255.255", self.emit_port)
+            self.SendDhcpPacketTo( response, "255.255.255.255", self.emit_port )
 
         elif ( ciaddr != "0.0.0.0" ):
             self.SendDhcpPacketTo( response, ciaddr, self.emit_port )
 
         elif broadcast:
-            #self.SendDhcpPacketTo( response, "255.255.255.255", self.emit_port )
-
-            chaddr = struct.pack( 6 * "B", *request.GetOption("chaddr")[0:6] )
-
-            ifconfig = interface.interface()
-            ifindex = ifconfig.getIndex(self.ifname)
-            ifaddr = ifconfig.getAddr(self.ifname)
-            if (ifaddr is None):
-                ifaddr = "0.0.0.0"
-
-            _rawsocket.udp_send_packet( response.EncodePacket(),
-                                        type_ipv4.ipv4(ifaddr).int(),
-                                        self.listen_port,
-                                        type_ipv4.ipv4("255.255.255.255").int(),
-                                        self.emit_port,
-                                        chaddr,
-                                        ifindex
-                                        )
+            self.SendDhcpPacketToRaw( response, request, "255.255.255.255", self.emit_port )
 
         else:  # unicast to yiaddr
-            yiaddr = ".".join(map(str, response.GetOption("yiaddr")))
-            chaddr = struct.pack( 6 * "B", *request.GetOption("chaddr")[0:6] )
-
-            ifconfig = interface.interface()
-            ifindex = ifconfig.getIndex(self.ifname)
-            ifaddr = ifconfig.getAddr(self.ifname)
-            if (ifaddr is None):
-                ifaddr = "0.0.0.0"
-
-            _rawsocket.udp_send_packet( response.EncodePacket(),
-                                        type_ipv4.ipv4(ifaddr).int(),
-                                        self.listen_port,
-                                        type_ipv4.ipv4(yiaddr).int(),
-                                        self.emit_port,
-                                        chaddr,
-                                        ifindex
-                                        )
+            yiaddr = ".".join(map(str, response.GetOption( "yiaddr" ) ) )
+            self.SendDhcpPacketToRaw( response, request, yiaddr, self.emit_port )
 
     def SendDhcpPacketTo(self, packet, _ip, _port):
         return self.dhcp_socket.sendto( packet.EncodePacket(), ( _ip, _port ) )
+
+    def SendDhcpPacketToRaw(self, response, request, _ip, _port):
+        chaddr = struct.pack( 6 * "B", *request.GetOption("chaddr")[0:6] )
+
+        ifconfig = interface.interface()
+        ifindex = ifconfig.getIndex(self.ifname)
+        ifaddr = ifconfig.getAddr(self.ifname)
+        if (ifaddr is None):
+            ifaddr = "0.0.0.0"
+
+        _rawsocket.udp_send_packet( response.EncodePacket(),
+                                    type_ipv4.ipv4(ifaddr).int(),
+                                    self.listen_port,
+                                    type_ipv4.ipv4(_ip).int(),
+                                    _port,
+                                    chaddr,
+                                    ifindex
+                                    )
 
     # Server side Handle methods
     def HandleDhcpDiscover(self, packet):
