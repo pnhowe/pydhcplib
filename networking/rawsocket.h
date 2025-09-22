@@ -25,7 +25,7 @@ struct ip_udp_dhcp_packet
 };
 
 /* Construct a ip/udp header for a packet, send packet */
-int rawsocket_udp_send_packet(const uint8_t *payload, int datalen, uint32_t source_nip, int source_port, uint32_t dest_nip, int dest_port, const uint8_t *dest_arp, int ifindex);
+int rawsocket_udp_send_packet(const uint8_t *payload, unsigned long datalen, uint32_t source_nip, int source_port, uint32_t dest_nip, int dest_port, const uint8_t *dest_arp, int ifindex);
 
 #define IP_UDP_DHCP_SIZE(payloadsz) (sizeof(struct ip_udp_dhcp_packet)-DHCP_MAX_PKGSZ+payloadsz)
 #define UDP_DHCP_SIZE(payloadsz) (sizeof(struct udphdr)+payloadsz)

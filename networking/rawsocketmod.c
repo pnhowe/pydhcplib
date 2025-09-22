@@ -24,6 +24,8 @@
 /* OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE   */
 /* OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.            */
 
+#define PY_SSIZE_T_CLEAN
+
 #include <Python.h>
 
 #include "rawsocket.h"
@@ -41,7 +43,7 @@ static
 PyObject *python_rawsocket_udp_send_packet(PyObject *self, PyObject *args)
 {
   char *payload, *hwaddr;
-  int payloadlen, hwaddrlen;
+  Py_ssize_t payloadlen, hwaddrlen;
   unsigned int source_nip, source_port;
   unsigned int dest_nip, dest_port;
   int ifindex;

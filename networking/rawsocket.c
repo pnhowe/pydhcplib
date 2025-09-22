@@ -26,13 +26,13 @@ uint16_t rawsocket_checksum(void *addr, int count)
    */
   int32_t sum = 0;
   uint16_t *source = (uint16_t *) addr;
-  
+
   while (count > 1)  {
     /*  This is the inner loop */
     sum += *source++;
     count -= 2;
   }
-  
+
   /*  Add left-over byte, if any */
   if (count > 0) {
     /* Make sure that the left-over byte is added correctly both
@@ -44,32 +44,32 @@ uint16_t rawsocket_checksum(void *addr, int count)
   /*  Fold 32-bit sum to 16 bits */
   while (sum >> 16)
     sum = (sum & 0xffff) + (sum >> 16);
-  
+
   return ~sum;
 }
 
 /* Construct a ip/udp header for a packet, send packet */
-int rawsocket_udp_send_packet(const uint8_t *payload, int datalen, uint32_t source_nip, int source_port, uint32_t dest_nip, int dest_port, const uint8_t *dest_arp, int ifindex)
+int rawsocket_udp_send_packet(const uint8_t *payload, unsigned long datalen, uint32_t source_nip, int source_port, uint32_t dest_nip, int dest_port, const uint8_t *dest_arp, int ifindex)
 {
   struct sockaddr_ll dest_sll;
   struct ip_udp_dhcp_packet packet;
   int result = -1;
   int fd;
-  
+
   fd = socket(PF_PACKET, SOCK_DGRAM, htons(ETH_P_IP));
   if (fd < 0 || datalen>DHCP_MAX_PKGSZ)
     return(result); // failure
-  
+
   memset(&dest_sll, 0, sizeof(dest_sll));
   memset(&packet, 0, offsetof(struct ip_udp_dhcp_packet, data));
   memcpy(packet.data, payload, datalen);
-  
+
   dest_sll.sll_family   = AF_PACKET;
   dest_sll.sll_protocol = htons(ETH_P_IP);
   dest_sll.sll_ifindex  = ifindex;
   dest_sll.sll_halen    = 6;
   memcpy(dest_sll.sll_addr, dest_arp, 6);
-  
+
   if (bind(fd, (struct sockaddr *)&dest_sll, sizeof(dest_sll)) < 0)
     goto ret_close;
 
@@ -89,7 +89,7 @@ int rawsocket_udp_send_packet(const uint8_t *payload, int datalen, uint32_t sour
   packet.ip.version  = IPVERSION;
   packet.ip.ttl      = IPDEFTTL;
   packet.ip.check    = rawsocket_checksum(&packet.ip, sizeof(packet.ip));
-  
+
   result = sendto(fd, &packet, IP_UDP_DHCP_SIZE(datalen), /*flags:*/ 0, (struct sockaddr *) &dest_sll, sizeof(dest_sll));
 
 ret_close:

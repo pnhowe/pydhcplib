@@ -1,4 +1,10 @@
-pydhcplib (0.7.3-2noble1) noble; urgency=medium
+pydhcplib (0.7.4-1) noble; urgency=medium
+
+  * Fixes to deal with python 3.10 that is on 24.04
+
+ -- Peter Howe <pnhowe@gmail.com>  Mon, 22 Sep 2025 09:29:04 -0600
+
+pydhcplib (0.7.3-3) noble; urgency=medium
 
   * Packaging updates
 
