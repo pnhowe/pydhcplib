@@ -15,8 +15,10 @@
 # You should have received a copy of the GNU General Public License
 # along with this program. If not, see <http://www.gnu.org/licenses/>.
 
+import os
 import socket
-import select
+import asyncio
+import fcntl
 import struct
 
 # from asm-generic/socket.h
@@ -56,6 +58,8 @@ class DhcpNetwork():
         except socket.error as msg:
             raise Exception('pydhcplib.DhcpNetwork socket error in setsockopt SO_REUSEADDR : ' + str(msg))
 
+        fcntl.fcntl(dhcp_socket, fcntl.F_SETFL, os.O_NONBLOCK)
+
         return dhcp_socket
 
     def EnableReuseaddr(self):
@@ -87,45 +91,44 @@ class DhcpNetwork():
         except socket.error as msg:
             raise Exception( 'pydhcplib.DhcpNetwork.BindToAddress error : ' + str(msg))
 
-    def GetNextDhcpPacket(self, timeout=60):
-        data = ""
+    async def GetNextDhcpPacket(self, timeout=60):
+        loop = asyncio.get_running_loop()
 
-        while data == "":
+        try:
+            # Wait for data with a timeout
+            data, source_address = await asyncio.wait_for(loop.sock_recvfrom(self.dhcp_socket, 2048), timeout=timeout)
+        except asyncio.TimeoutError:
+            return None  # Timeout reached, no data
 
-            data_input, data_output, data_except = select.select([self.dhcp_socket], [], [], timeout)
+        print( 'Have Data' )
 
-            if( data_input != [] ):
-                (data, source_address) = self.dhcp_socket.recvfrom(2048)
+        if data != "":
+            packet = dhcp_packet.DhcpPacket()
+            packet.source_address = source_address
+            packet.DecodePacket(data)
+
+            await self.HandleDhcpAll(packet)
+
+            if packet.IsDhcpDiscoverPacket():
+                await self.HandleDhcpDiscover(packet)
+            elif packet.IsDhcpRequestPacket():
+                await self.HandleDhcpRequest(packet)
+            elif packet.IsDhcpDeclinePacket():
+                await self.HandleDhcpDecline(packet)
+            elif packet.IsDhcpReleasePacket():
+                await self.HandleDhcpRelease(packet)
+            elif packet.IsDhcpInformPacket():
+                await self.HandleDhcpInform(packet)
+            elif packet.IsDhcpOfferPacket():
+                await self.HandleDhcpOffer(packet)
+            elif packet.IsDhcpAckPacket():
+                await self.HandleDhcpAck(packet)
+            elif packet.IsDhcpNackPacket():
+                await self.HandleDhcpNack(packet)
             else:
-                return None
+                await self.HandleDhcpUnknown(packet)
 
-            if data != "":
-                packet = dhcp_packet.DhcpPacket()
-                packet.source_address = source_address
-                packet.DecodePacket(data)
-
-                self.HandleDhcpAll(packet)
-
-                if packet.IsDhcpDiscoverPacket():
-                    self.HandleDhcpDiscover(packet)
-                elif packet.IsDhcpRequestPacket():
-                    self.HandleDhcpRequest(packet)
-                elif packet.IsDhcpDeclinePacket():
-                    self.HandleDhcpDecline(packet)
-                elif packet.IsDhcpReleasePacket():
-                    self.HandleDhcpRelease(packet)
-                elif packet.IsDhcpInformPacket():
-                    self.HandleDhcpInform(packet)
-                elif packet.IsDhcpOfferPacket():
-                    self.HandleDhcpOffer(packet)
-                elif packet.IsDhcpAckPacket():
-                    self.HandleDhcpAck(packet)
-                elif packet.IsDhcpNackPacket():
-                    self.HandleDhcpNack(packet)
-                else:
-                    self.HandleDhcpUnknown(packet)
-
-                return packet
+            return packet
 
     def SendDhcpPacket(self, request, response):
         giaddr = ".".join(map(str, request.GetOption("giaddr")))
@@ -194,36 +197,36 @@ class DhcpNetwork():
                                     )
 
     # Server side Handle methods
-    def HandleDhcpDiscover(self, packet):
+    async def HandleDhcpDiscover(self, packet):
         pass
 
-    def HandleDhcpRequest(self, packet):
+    async def HandleDhcpRequest(self, packet):
         pass
 
-    def HandleDhcpDecline(self, packet):
+    async def HandleDhcpDecline(self, packet):
         pass
 
-    def HandleDhcpRelease(self, packet):
+    async def HandleDhcpRelease(self, packet):
         pass
 
-    def HandleDhcpInform(self, packet):
+    async def HandleDhcpInform(self, packet):
         pass
 
     # client-side Handle methods
-    def HandleDhcpOffer(self, packet):
+    async def HandleDhcpOffer(self, packet):
         pass
 
-    def HandleDhcpAck(self, packet):
+    async def HandleDhcpAck(self, packet):
         pass
 
-    def HandleDhcpNack(self, packet):
+    async def HandleDhcpNack(self, packet):
         pass
 
     # Handle unknown options or all options
-    def HandleDhcpUnknown(self, packet):
+    async def HandleDhcpUnknown(self, packet):
         pass
 
-    def HandleDhcpAll(self, packet):
+    async def HandleDhcpAll(self, packet):
         pass
 
 
