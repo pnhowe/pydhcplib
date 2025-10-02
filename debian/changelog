@@ -1,3 +1,10 @@
+pydhcplib (0.7.5-1) noble; urgency=medium
+
+  * Made packet handeling async
+  * Replaced the old style select.select with asyncio functions
+
+ -- Peter Howe <pnhowe@gmail.com>  Thu, 02 Oct 2025 12:31:19 -0600
+
 pydhcplib (0.7.4-1) noble; urgency=medium
 
   * Fixes to deal with python 3.10 that is on 24.04
