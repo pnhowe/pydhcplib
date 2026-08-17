@@ -1,3 +1,9 @@
+pydhcplib (0.7.6-1) noble; urgency=medium
+
+  * Fixed iPXE option
+
+ -- Peter Howe <pnhowe@gmail.com>  Mon, 17 Aug 2026 17:26:39 -0600
+
 pydhcplib (0.7.5-1) noble; urgency=medium
 
   * Made packet handeling async
