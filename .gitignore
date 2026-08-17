@@ -8,3 +8,5 @@ build
 dist
 pydhcplib.egg-info
 .pybuild
+
+.vscode
