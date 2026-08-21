@@ -20,6 +20,7 @@ import socket
 import asyncio
 import fcntl
 import struct
+import logging
 
 # from asm-generic/socket.h
 SO_BINDTODEVICE = 25
@@ -100,33 +101,38 @@ class DhcpNetwork():
         except asyncio.TimeoutError:
             return None  # Timeout reached, no data
 
-        print( 'Have Data' )
-
         if data != "":
             packet = dhcp_packet.DhcpPacket()
             packet.source_address = source_address
             packet.DecodePacket(data)
 
-            await self.HandleDhcpAll(packet)
+            # a malformed packet, or a failure while replying to one, must not be
+            # allowed to escape: it would unwind the caller's receive loop and the
+            # server would silently stop answering
+            try:
+                await self.HandleDhcpAll(packet)
 
-            if packet.IsDhcpDiscoverPacket():
-                await self.HandleDhcpDiscover(packet)
-            elif packet.IsDhcpRequestPacket():
-                await self.HandleDhcpRequest(packet)
-            elif packet.IsDhcpDeclinePacket():
-                await self.HandleDhcpDecline(packet)
-            elif packet.IsDhcpReleasePacket():
-                await self.HandleDhcpRelease(packet)
-            elif packet.IsDhcpInformPacket():
-                await self.HandleDhcpInform(packet)
-            elif packet.IsDhcpOfferPacket():
-                await self.HandleDhcpOffer(packet)
-            elif packet.IsDhcpAckPacket():
-                await self.HandleDhcpAck(packet)
-            elif packet.IsDhcpNackPacket():
-                await self.HandleDhcpNack(packet)
-            else:
-                await self.HandleDhcpUnknown(packet)
+                if packet.IsDhcpDiscoverPacket():
+                    await self.HandleDhcpDiscover(packet)
+                elif packet.IsDhcpRequestPacket():
+                    await self.HandleDhcpRequest(packet)
+                elif packet.IsDhcpDeclinePacket():
+                    await self.HandleDhcpDecline(packet)
+                elif packet.IsDhcpReleasePacket():
+                    await self.HandleDhcpRelease(packet)
+                elif packet.IsDhcpInformPacket():
+                    await self.HandleDhcpInform(packet)
+                elif packet.IsDhcpOfferPacket():
+                    await self.HandleDhcpOffer(packet)
+                elif packet.IsDhcpAckPacket():
+                    await self.HandleDhcpAck(packet)
+                elif packet.IsDhcpNackPacket():
+                    await self.HandleDhcpNack(packet)
+                else:
+                    await self.HandleDhcpUnknown(packet)
+
+            except Exception:
+                logging.exception('pydhcplib.DhcpNetwork: exception handling packet from "%s", continuing', source_address)
 
             return packet
 
@@ -160,37 +166,57 @@ class DhcpNetwork():
         # server to the dhcp relay's front facing ip.
 
         if ( giaddr != "0.0.0.0" ):
-            self.SendDhcpPacketTo( response, giaddr, self.listen_port )
+            logging.debug('pydhcplib.DhcpNetwork: replying via giaddr "%s" (broadcast flag: %s)', giaddr, broadcast)
+            return self.SendDhcpPacketTo( response, giaddr, self.listen_port )
 
         elif ( response.IsDhcpNackPacket() ):
-            self.SendDhcpPacketTo( response, "255.255.255.255", self.emit_port )
+            logging.debug('pydhcplib.DhcpNetwork: broadcasting NAK (broadcast flag: %s)', broadcast)
+            return self.SendDhcpPacketTo( response, "255.255.255.255", self.emit_port )
 
         elif ( ciaddr != "0.0.0.0" ):
-            self.SendDhcpPacketTo( response, ciaddr, self.emit_port )
+            logging.debug('pydhcplib.DhcpNetwork: replying via routed socket to ciaddr "%s" (broadcast flag: %s)', ciaddr, broadcast)
+            return self.SendDhcpPacketTo( response, ciaddr, self.emit_port )
 
         elif broadcast:
-            self.SendDhcpPacketToRaw( response, request, "255.255.255.255", self.emit_port )
+            logging.debug('pydhcplib.DhcpNetwork: replying raw broadcast to 255.255.255.255')
+            return self.SendDhcpPacketToRaw( response, request, "255.255.255.255", self.emit_port )
 
         else:  # unicast to yiaddr
             yiaddr = ".".join(map(str, response.GetOption( "yiaddr" ) ) )
-            self.SendDhcpPacketToRaw( response, request, yiaddr, self.emit_port )
+            logging.debug('pydhcplib.DhcpNetwork: replying raw unicast to yiaddr "%s" (broadcast flag not set)', yiaddr)
+            return self.SendDhcpPacketToRaw( response, request, yiaddr, self.emit_port )
 
     def SendDhcpPacketTo(self, packet, _ip, _port):
         return self.dhcp_socket.sendto( packet.EncodePacket(), ( _ip, _port ) )
 
     def SendDhcpPacketToRaw(self, response, request, _ip, _port):
-        chaddr = struct.pack( 6 * "B", *request.GetOption("chaddr")[0:6] )
+        # a reply the client can't ARP for goes to its hardware address, but a
+        # broadcast reply belongs at the link-layer broadcast address too -- an
+        # all-ones IP destination aimed at a single MAC is an odd frame that not
+        # every virtual switch forwards
+        if ( _ip == "255.255.255.255" ):
+            chaddr = b"\xff" * 6
+        else:
+            chaddr = struct.pack( 6 * "B", *request.GetOption("chaddr")[0:6] )
 
         ifconfig = interface.interface()
         ifindex = ifconfig.getIndex(self.ifname)
+        if (ifindex is None):
+            logging.error('pydhcplib.DhcpNetwork: unable to get the index of "%s", can not send', self.ifname)
+            return False
+
         ifaddr = ifconfig.getAddr(self.ifname)
         if (ifaddr is None):
             ifaddr = "0.0.0.0"
 
-        _rawsocket.udp_send_packet( response.EncodePacket(),
-                                    type_ipv4.ipv4(ifaddr).int(),
+        # the C helper stores these straight into struct iphdr saddr/daddr, which
+        # are __be32, but ipv4().int() is host order -- convert or they go out
+        # byte-reversed (255.255.255.255 is a palindrome, which is why broadcast
+        # replies have always looked fine)
+        return _rawsocket.udp_send_packet( response.EncodePacket(),
+                                    socket.htonl( type_ipv4.ipv4(ifaddr).int() ),
                                     self.listen_port,
-                                    type_ipv4.ipv4(_ip).int(),
+                                    socket.htonl( type_ipv4.ipv4(_ip).int() ),
                                     _port,
                                     chaddr,
                                     ifindex

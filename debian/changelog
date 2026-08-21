@@ -1,3 +1,9 @@
+pydhcplib (0.7.7-1) noble; urgency=medium
+
+  * Minor bugs that claude found
+
+ -- Peter Howe <pnhowe@gmail.com>  Fri, 21 Aug 2026 15:16:17 -0600
+
 pydhcplib (0.7.6-1) noble; urgency=medium
 
   * Fixed iPXE option

@@ -110,8 +110,10 @@ class interface:
     def getIndex(self, ifname):
         """ Get the ifindex for an interface """
         data = self._call(ifname, self.SIOCGIFINDEX)
-        index = struct.unpack("16si12x", data)[1]
-        return index
+        if (data is None):
+            return None
+
+        return struct.unpack("16si12x", data)[1]
 
     def getBroadcast(self, ifname):
         """ Get the broadcast addr for an interface """
